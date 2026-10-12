@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/policy-engine" },
+    { "path": "./packages/identity" },
+    { "path": "./packages/audit" },
+    { "path": "./packages/security-core" },
+    { "path": "./apps/demo-mcp-server" },
+    { "path": "./apps/mcp-proxy" },
+    { "path": "./apps/api" },
+    { "path": "./apps/dashboard" }
+  ]
+}

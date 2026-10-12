@@ -1,0 +1,21 @@
+{
+  "name": "@mcp-sentinel/mcp-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "npx tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@mcp-sentinel/shared": "*",
+    "@mcp-sentinel/policy-engine": "*",
+    "@mcp-sentinel/identity": "*",
+    "@mcp-sentinel/audit": "*",
+    "@mcp-sentinel/security-core": "*",
+    "zod": "^3.24.0"
+  }
+}

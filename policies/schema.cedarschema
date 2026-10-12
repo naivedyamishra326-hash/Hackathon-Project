@@ -1,0 +1,105 @@
+// Cedar schema for MCP Sentinel authorization
+// Defines entity types, actions, and context shapes
+
+namespace MCPSentinel {
+
+  // Entity types
+  type Agent = {
+    capabilities: Set<String>,
+    trustLevel: String,
+    maxRefundAmount?: Long,
+    authorizedAccounts?: Set<String>,
+    currency?: String,
+  };
+
+  type Tool = {
+    category: String,
+    riskLevel: String,
+    requiredCapabilities: Set<String>,
+  };
+
+  type Account = {
+    ownerId: String,
+    status: String,
+    currency: String,
+  };
+
+  type Resource = {
+    type: String,
+    sensitivity: String,
+  };
+
+  // Actions
+  action "call_tool" appliesTo {
+    principal: [Agent],
+    resource: [Tool],
+    context: {
+      requestedAmount?: Long,
+      targetAccountId?: String,
+      toolArgs?: Record,
+      sessionId?: String,
+      tokenId?: String,
+      delegationDepth?: Long,
+      isRevoked?: Bool,
+    },
+  };
+
+  action "read_account" appliesTo {
+    principal: [Agent],
+    resource: [Account],
+    context: {
+      sessionId?: String,
+      tokenId?: String,
+    },
+  };
+
+  action "issue_refund" appliesTo {
+    principal: [Agent],
+    resource: [Account],
+    context: {
+      requestedAmount: Long,
+      transactionId: String,
+      currency: String,
+      sessionId?: String,
+      tokenId?: String,
+      isRevoked?: Bool,
+    },
+  };
+
+  action "read_resource" appliesTo {
+    principal: [Agent],
+    resource: [Resource],
+    context: {
+      path?: String,
+      sessionId?: String,
+    },
+  };
+
+  action "write_resource" appliesTo {
+    principal: [Agent],
+    resource: [Resource],
+    context: {
+      path?: String,
+      sessionId?: String,
+    },
+  };
+
+  action "execute_command" appliesTo {
+    principal: [Agent],
+    resource: [Tool],
+    context: {
+      command?: String,
+      sessionId?: String,
+    },
+  };
+
+  action "network_request" appliesTo {
+    principal: [Agent],
+    resource: [Tool],
+    context: {
+      url?: String,
+      scheme?: String,
+      sessionId?: String,
+    },
+  };
+}

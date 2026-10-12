@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "mcp-sentinel": {
+      "command": "node",
+      "args": [
+        "c:/Users/mishr/OneDrive/Pictures/Hackathon-project/node_modules/tsx/dist/cli.mjs",
+        "c:/Users/mishr/OneDrive/Pictures/Hackathon-project/apps/mcp-proxy/src/index.ts"
+      ],
+      "env": {
+        "AGENT_IDENTITY": "spiffe://demo.local/agent/financial-remediation",
+        "DOWNSTREAM_CMD": "node",
+        "DOWNSTREAM_ARGS": "c:/Users/mishr/OneDrive/Pictures/Hackathon-project/node_modules/tsx/dist/cli.mjs,c:/Users/mishr/OneDrive/Pictures/Hackathon-project/apps/demo-mcp-server/src/index.ts"
+      }
+    }
+  }
+}

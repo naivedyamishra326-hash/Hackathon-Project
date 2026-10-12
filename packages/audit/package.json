@@ -1,0 +1,16 @@
+{
+  "name": "@mcp-sentinel/audit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./src/index.ts", "default": "./src/index.ts" }
+  },
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "dependencies": {
+    "sql.js": "^1.12.0",
+    "@mcp-sentinel/shared": "*"
+  }
+}

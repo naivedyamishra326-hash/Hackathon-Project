@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --color-sentinel-50: #eef7ff;
+  --color-sentinel-100: #d8edff;
+  --color-sentinel-200: #b9deff;
+  --color-sentinel-300: #89c9ff;
+  --color-sentinel-400: #52abff;
+  --color-sentinel-500: #2a88ff;
+  --color-sentinel-600: #1466f5;
+  --color-sentinel-700: #0d4ee1;
+  --color-sentinel-800: #1140b6;
+  --color-sentinel-900: #143a8f;
+  --color-threat-low: #22c55e;
+  --color-threat-medium: #eab308;
+  --color-threat-high: #f97316;
+  --color-threat-critical: #ef4444;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+/* Code/policy editor styling */
+.policy-editor {
+  font-family: var(--font-mono);
+  tab-size: 2;
+}
+
+/* Smooth transitions */
+.transition-smooth { transition: all 0.2s ease-in-out; }
+
+/* Pulse animation for live indicator */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }

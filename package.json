@@ -1,0 +1,27 @@
+{
+  "name": "mcp-sentinel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zero-Trust Agentic Sidecar — Runtime security for MCP-connected AI agents",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:dashboard": "npm run dev -w apps/dashboard",
+    "dev:proxy": "npm run dev -w apps/mcp-proxy",
+    "dev:demo-server": "npm run dev -w apps/demo-mcp-server",
+    "benchmark": "npx tsx tests/benchmark/run.ts",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}
