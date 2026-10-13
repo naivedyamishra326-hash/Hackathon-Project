@@ -76,6 +76,31 @@ npm run dev:dashboard
 
 Dashboard runs on `http://localhost:5173`
 
+---
+
+## 🤖 Gemini AI Finance Bot Integration
+
+MCP Sentinel includes a real **Google Gemini-powered AI Finance Assistant** protected by Zero-Trust runtime mediation:
+
+* **Official SDK**: Built using `@google/genai` (v2.28+) with configurable model (`gemini-3.8-flash`).
+* **Zero-Trust Mediation**: Gemini proposes tool calls via genuine Function Calling. Every tool invocation is intercepted, validated, and authorized through the Cedar policy engine before touching the simulated ledger.
+* **Human-in-the-Loop Refund Approval**: The LLM can NEVER execute a refund directly. Model requests generate a server-side pending confirmation card requiring explicit human approval on the UI.
+* **Prompt Injection Defense**: Transaction memos with adversarial injection attempts (e.g., `TXN-2005`) are detected, flagged with taint markers, and neutralized.
+* **Architecture Docs**: See [docs/GEMINI_FINANCE_BOT.md](file:///c:/Users/mishr/OneDrive/Pictures/Hackathon-project/docs/GEMINI_FINANCE_BOT.md) for full architecture and verification details.
+
+### Gemini Setup
+
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Configure your Google Gemini API key:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   GEMINI_MODEL=gemini-3.8-flash
+   ```
+3. Open the dashboard at `http://localhost:5173` and click **AI Finance Bot** in the sidebar.
+
 ### Run Attack Simulations
 
 From the dashboard, navigate to **Attack Lab** and click **Run** on each scenario:

@@ -110,8 +110,56 @@ export const api = {
       method: 'POST', body: JSON.stringify({ agentIdentity }),
     }),
   getComplianceReport: () => fetchJSON<any>('/reports/compliance'),
+  getFinanceStatus: () => fetchJSON<{
+    configured: boolean;
+    model: string;
+    clientReady: boolean;
+    message?: string;
+    proxyReady: boolean;
+    quarantined: boolean;
+    availableTools: string[];
+  }>('/finance/status'),
+  sendFinanceChat: (message: string, conversationId?: string, accountId?: string) =>
+    fetchJSON<{
+      success: boolean;
+      response: string;
+      sessionId: string;
+      toolActivities: any[];
+      pendingRefund: any;
+      error?: string;
+    }>('/finance/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, conversationId, accountId }),
+    }),
+  getFinanceConversation: (id: string) => fetchJSON<any>(`/finance/conversations/${id}`),
+  getPendingRefunds: () => fetchJSON<{ pendingRefunds: any[] }>('/finance/refunds/pending'),
+  confirmRefund: (confirmationId: string) =>
+    fetchJSON<any>(`/finance/refunds/${confirmationId}/confirm`, { method: 'POST' }),
+  rejectRefund: (confirmationId: string) =>
+    fetchJSON<any>(`/finance/refunds/${confirmationId}/reject`, { method: 'POST' }),
   simulate: (scenario: string) => fetchJSON<any>(`/simulate/${scenario}`, { method: 'POST' }),
   reset: () => fetchJSON<any>('/reset', { method: 'POST' }),
+  resetFinance: () => fetchJSON<any>('/finance/reset', { method: 'POST' }),
+  getAccounts: () => fetchJSON<{ accounts: any[] }>('/finance/accounts'),
+  getAccountDetails: (id: string) => fetchJSON<{ account: any; analytics: any }>(`/finance/accounts/${id}`),
+  getAccountTransactions: (id: string, params?: { category?: string; status?: string; search?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.category) qs.set('category', params.category);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.search) qs.set('search', params.search);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return fetchJSON<{ transactions: any[]; count: number }>(`/finance/accounts/${id}/transactions${query}`);
+  },
+  setAccountStatus: (id: string, status: 'active' | 'suspended' | 'closed', reason?: string) =>
+    fetchJSON<{ success: boolean; account: any }>(`/finance/accounts/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status, reason }),
+    }),
+  runAiAudit: (accountId: string) =>
+    fetchJSON<{ success: boolean; report: string; analytics: any }>('/finance/ai/audit', {
+      method: 'POST',
+      body: JSON.stringify({ accountId }),
+    }),
 };
 
 export function useSSE(onEvent: (event: any) => void) {

@@ -21,6 +21,14 @@ import { IdentityProvider } from '@mcp-sentinel/identity';
 import { RequestInspector, ResponseInspector, RiskScorer, BehavioralAnalyzer, CircuitBreaker } from '@mcp-sentinel/security-core';
 import type { BehavioralIncident } from '@mcp-sentinel/security-core';
 
+import { McpProxyClient } from './services/mcp-proxy-client.js';
+import { RefundConfirmationService, defaultRefundService } from './services/refund-confirmation-service.js';
+import { FinanceToolRegistry } from './services/finance-tool-registry.js';
+import { FinanceConversationStore, defaultConversationStore } from './services/finance-conversation-store.js';
+import { GeminiClientService, defaultGeminiClientService } from './services/gemini-client.js';
+import { FinanceAgent } from './services/finance-agent.js';
+import { sharedLedger } from '../../demo-mcp-server/src/ledger.js';
+
 const PROJECT_ROOT = resolve(import.meta.dirname || process.cwd(), '..', '..', '..');
 const POLICY_DIR = join(PROJECT_ROOT, 'policies');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
@@ -39,6 +47,10 @@ const responseInspector = new ResponseInspector();
 const requestInspector = new RequestInspector();
 const circuitBreaker = new CircuitBreaker({ violationThreshold: 3, windowMs: 60000 });
 const pendingApprovals: Map<string, ApprovalRequest> = new Map();
+
+let mcpProxyClient: McpProxyClient;
+let financeToolRegistry: FinanceToolRegistry;
+let financeAgent: FinanceAgent;
 
 // Track demo tokens
 interface DemoToken {
@@ -844,15 +856,219 @@ app.post('/api/simulate/:scenario', async (req, res) => {
   }
 });
 
-// ── Demo Reset ────────────────────────────────────────────────
+// ── Finance Bot Endpoints ─────────────────────────────────────
+app.get('/api/finance/status', async (_req, res) => {
+  try {
+    const status = await defaultGeminiClientService.getStatus();
+    res.json({
+      ...status,
+      proxyReady: Boolean(mcpProxyClient),
+      quarantined: mcpProxyClient ? mcpProxyClient.isQuarantined() : false,
+      availableTools: financeToolRegistry ? financeToolRegistry.getGeminiFunctionDeclarations().map(t => t.name) : [],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Status check failed' });
+  }
+});
+
+app.post('/api/finance/chat', async (req, res) => {
+  try {
+    const { message, conversationId, accountId } = req.body;
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message string is required' });
+    }
+    const sessionId = conversationId || `conv-${Date.now()}`;
+    const result = await financeAgent.processTurn(sessionId, message, accountId || 'ACC-1001');
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Chat processing error' });
+  }
+});
+
+// ── Realistic Account Management & AI Audit ───────────────────
+app.get('/api/finance/accounts', (_req, res) => {
+  const accounts = sharedLedger.listAccounts();
+  res.json({ accounts });
+});
+
+app.get('/api/finance/accounts/:id', (req, res) => {
+  const { id } = req.params;
+  const account = sharedLedger.getAccount(id);
+  if (!account) return res.status(404).json({ error: 'Account not found' });
+  const analytics = sharedLedger.getAccountAnalytics(id);
+  res.json({ account, analytics });
+});
+
+app.get('/api/finance/accounts/:id/transactions', (req, res) => {
+  const { id } = req.params;
+  const { category, status, search } = req.query;
+  let txns = sharedLedger.getAccountTransactions(id);
+
+  if (category && category !== 'all') {
+    txns = txns.filter(t => t.category?.toLowerCase() === String(category).toLowerCase());
+  }
+  if (status && status !== 'all') {
+    txns = txns.filter(t => t.status?.toLowerCase() === String(status).toLowerCase());
+  }
+  if (search) {
+    const q = String(search).toLowerCase();
+    txns = txns.filter(t =>
+      t.merchantName?.toLowerCase().includes(q) ||
+      t.memo?.toLowerCase().includes(q) ||
+      t.id?.toLowerCase().includes(q) ||
+      t.category?.toLowerCase().includes(q)
+    );
+  }
+
+  res.json({ transactions: txns, count: txns.length });
+});
+
+app.post('/api/finance/accounts/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status, reason } = req.body;
+  if (!['active', 'suspended', 'closed'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const success = sharedLedger.updateAccountStatus(id, status);
+  if (!success) return res.status(404).json({ error: 'Account not found' });
+
+  const event = await auditLogger.record({
+    correlationId: generateCorrelationId(),
+    agentIdentity: 'account-portal-security',
+    toolName: 'account_security',
+    action: status === 'suspended' ? 'freeze_account' : 'unfreeze_account',
+    resourceId: id,
+    eventType: SecurityEventType.TOOL_CALL_ALLOWED,
+    details: { accountId: id, newStatus: status, reason: reason || 'User action via Account Portal' },
+  });
+  broadcastSSE({ type: 'audit_event', data: event, timestamp: nowISO() });
+
+  res.json({ success: true, account: sharedLedger.getAccount(id) });
+});
+
+app.post('/api/finance/ai/audit', async (req, res) => {
+  try {
+    const { accountId } = req.body;
+    const targetId = accountId || 'ACC-1001';
+    const account = sharedLedger.getAccount(targetId);
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+
+    const analytics = sharedLedger.getAccountAnalytics(targetId);
+    const txns = sharedLedger.getAccountTransactions(targetId);
+
+    const prompt = `Analyze this customer account and provide an executive AI financial & security audit:
+Account: ${account.name} (${targetId}), Balance: $${account.balance} ${account.currency}, Status: ${account.status}
+Total Inflow: $${analytics.totalCredits}, Total Outflow: $${analytics.totalDebits}, Active Subscriptions: ${analytics.subscriptionsCount} ($${analytics.subscriptionsMonthly}/mo).
+High-Risk Transactions: ${analytics.highRiskCount}, Disputed Charges: ${analytics.disputedCount}.
+
+Transactions summary:
+${txns.slice(0, 15).map(t => `- [${t.id}] ${t.merchantName || t.memo}: $${t.amount} (${t.status}, risk: ${t.riskScore || 0}, category: ${t.category || 'General'})`).join('\n')}
+
+Format your response in crisp markdown with:
+1. 📊 Executive Financial Health
+2. 🔄 Recurring Subscriptions Review
+3. 🛡️ Zero-Trust Security & Fraud Alerts
+4. 💡 Automated Recommendations`;
+
+    const aiResult = await financeAgent.processTurn(`audit-${Date.now()}`, prompt, targetId);
+    res.json({
+      success: true,
+      report: aiResult.response,
+      analytics,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Audit failed' });
+  }
+});
+
+app.get('/api/finance/conversations/:id', (req, res) => {
+  const session = defaultConversationStore.getSession(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: 'Conversation not found' });
+  }
+  res.json(session);
+});
+
+app.get('/api/finance/refunds/pending', (req, res) => {
+  const list = defaultRefundService.listPending(req.query.sessionId as string | undefined);
+  res.json({ pendingRefunds: list });
+});
+
+app.post('/api/finance/refunds/:confirmationId/confirm', async (req, res) => {
+  try {
+    const { confirmationId } = req.params;
+    const validation = defaultRefundService.consumeConfirmation(confirmationId);
+    if (!validation.valid || !validation.refund) {
+      return res.status(400).json({ error: validation.error || 'Invalid or expired confirmation ID' });
+    }
+
+    const { transactionId, accountId, amount, currency, reason } = validation.refund;
+
+    // Execute actual issue_refund tool through MCP Sentinel security proxy
+    const execResult = await mcpProxyClient.executeTool('issue_refund', {
+      transactionId,
+      accountId,
+      amount,
+      currency,
+      reason,
+    });
+
+    validation.refund.executionResult = execResult as any;
+
+    if (!execResult.success || execResult.isError) {
+      return res.status(403).json({
+        success: false,
+        message: 'Refund was denied by Cedar policy or security inspection',
+        executionResult: execResult,
+        refund: validation.refund,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Refund of $${amount} for ${transactionId} confirmed and executed successfully`,
+      executionResult: execResult,
+      refund: validation.refund,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Refund confirmation failed' });
+  }
+});
+
+app.post('/api/finance/refunds/:confirmationId/reject', (req, res) => {
+  const { confirmationId } = req.params;
+  const result = defaultRefundService.rejectConfirmation(confirmationId);
+  if (!result.valid) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json({ success: true, message: 'Refund proposal was rejected. Ledger remains unchanged.' });
+});
+
+// ── Finance & Ledger Reset ────────────────────────────────────
+app.post('/api/finance/reset', async (_req, res) => {
+  sharedLedger.reset();
+  defaultRefundService.clear();
+  defaultConversationStore.clear();
+  res.json({
+    success: true,
+    message: 'Fintech ledger accounts, transactions, and finance conversation sessions reset to unrefunded initial state',
+    accounts: sharedLedger.listAccounts(),
+  });
+});
+
+// ── Full Demo Reset ───────────────────────────────────────────
 app.post('/api/reset', async (_req, res) => {
+  sharedLedger.reset();
+  defaultRefundService.clear();
+  defaultConversationStore.clear();
   auditLogger.reset();
   identityProvider.resetState();
   behavioralAnalyzer.reset();
   demoTokens.clear();
   lastEventFileSize = 0;
   try { writeFileSync(EVENT_FILE, ''); } catch { /* ok */ }
-  res.json({ success: true, message: 'Demo environment reset' });
+  res.json({ success: true, message: 'Demo environment, fintech ledger, and audit logs reset' });
 });
 
 // ── Start Server ──────────────────────────────────────────────
@@ -860,6 +1076,27 @@ async function main() {
   await auditLogger.initialize();
   await identityProvider.initialize();
   await policyEngine.initialize();
+
+  // Initialize MCP Security Proxy Client & Finance Agent
+  mcpProxyClient = new McpProxyClient({
+    policyEngine,
+    auditLogger,
+    identityProvider,
+    requestInspector,
+    responseInspector,
+    riskScorer,
+    circuitBreaker,
+    behavioralAnalyzer,
+    onEvent: (event) => broadcastSSE({ type: 'audit_event', data: event, timestamp: nowISO() }),
+  });
+  await mcpProxyClient.initialize();
+
+  financeToolRegistry = new FinanceToolRegistry(mcpProxyClient, defaultRefundService);
+  financeAgent = new FinanceAgent(
+    defaultGeminiClientService,
+    financeToolRegistry,
+    defaultConversationStore
+  );
 
   const port = parseInt(process.env.PORT || String(API_CONFIG.DEFAULT_PORT));
   app.listen(port, () => {

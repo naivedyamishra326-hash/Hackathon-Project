@@ -6,9 +6,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { FintechLedger } from './ledger.js';
+import { FintechLedger, sharedLedger } from './ledger.js';
 
-const ledger = new FintechLedger();
+const ledger = sharedLedger;
 
 const server = new McpServer({
   name: 'sentinel-fintech-demo',
@@ -50,12 +50,15 @@ server.tool(
 server.tool(
   'get_transaction',
   'Get transaction details by ID',
-  { transactionId: z.string().describe('Transaction ID (e.g. TXN-2001)') },
-  async ({ transactionId }) => {
-    const txn = ledger.getTransaction(transactionId);
+  {
+    transactionId: z.string().describe('Transaction ID (e.g. TXN-2001)'),
+    accountId: z.string().optional().describe('Optional customer account ID to verify ownership'),
+  },
+  async ({ transactionId, accountId }) => {
+    const txn = ledger.getTransaction(transactionId, accountId);
     if (!txn) {
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Transaction not found', transactionId }) }],
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Transaction not found or account mismatch', transactionId, accountId }) }],
       };
     }
     return {
@@ -81,9 +84,12 @@ server.tool(
 server.tool(
   'check_refund_eligibility',
   'Check if a transaction is eligible for refund',
-  { transactionId: z.string().describe('Transaction ID to check') },
-  async ({ transactionId }) => {
-    const result = ledger.checkRefundEligibility(transactionId);
+  {
+    transactionId: z.string().describe('Transaction ID to check'),
+    accountId: z.string().optional().describe('Optional customer account ID to verify ownership'),
+  },
+  async ({ transactionId, accountId }) => {
+    const result = ledger.checkRefundEligibility(transactionId, accountId);
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     };
@@ -121,12 +127,15 @@ server.tool(
 server.tool(
   'assess_transaction_risk',
   'Assess the risk level of a transaction',
-  { transactionId: z.string().describe('Transaction ID to assess') },
-  async ({ transactionId }) => {
-    const txn = ledger.getTransaction(transactionId);
+  {
+    transactionId: z.string().describe('Transaction ID to assess'),
+    accountId: z.string().optional().describe('Optional customer account ID to verify ownership'),
+  },
+  async ({ transactionId, accountId }) => {
+    const txn = ledger.getTransaction(transactionId, accountId);
     if (!txn) {
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Transaction not found' }) }],
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Transaction not found or account mismatch' }) }],
       };
     }
     const assessment = {

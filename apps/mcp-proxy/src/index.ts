@@ -156,10 +156,17 @@ async function authorizeToolCall(
     context.transactionId = (args.transactionId as string) || '';
     context.currency = (args.currency as string) || 'USD';
     context.targetAccountId = accountId;
-  } else if (toolName === 'get_account' || toolName === 'get_account_transactions') {
+  } else if (
+    toolName === 'get_account' ||
+    toolName === 'get_account_transactions' ||
+    toolName === 'get_transaction' ||
+    toolName === 'check_refund_eligibility' ||
+    toolName === 'assess_transaction_risk'
+  ) {
     action = 'MCPSentinel::Action::"read_account"';
-    const accountId = args.accountId as string;
+    const accountId = (args.accountId as string) || (args.targetAccountId as string);
     if (accountId) resource = `MCPSentinel::Account::"${accountId}"`;
+    if (args.transactionId) context.transactionId = args.transactionId as string;
   }
 
   if (args.targetAccountId) context.targetAccountId = args.targetAccountId;

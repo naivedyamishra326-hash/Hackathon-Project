@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { Shield, Activity, FileText, Users, Crosshair, Search, FlaskConical, BarChart3, Network, UserCheck, Check, X, Zap, AlertTriangle } from 'lucide-react';
+import { Shield, Activity, FileText, Users, Crosshair, Search, FlaskConical, BarChart3, Network, UserCheck, Check, X, Zap, AlertTriangle, Bot, Landmark } from 'lucide-react';
 import Overview from './pages/Overview.tsx';
 import LiveMonitor from './pages/LiveMonitor.tsx';
 import PolicyStudio from './pages/PolicyStudio.tsx';
@@ -9,10 +9,14 @@ import AttackLab from './pages/AttackLab.tsx';
 import AuditExplorer from './pages/AuditExplorer.tsx';
 import IncidentExplorer from './pages/IncidentExplorer.tsx';
 import SecurityGraph from './pages/SecurityGraph.tsx';
+import { FinanceBot } from './pages/FinanceBot.tsx';
+import { AccountPortal } from './pages/AccountPortal.tsx';
 import { api, useSSE } from './api.ts';
 
 const navItems = [
   { to: '/', icon: BarChart3, label: 'Overview' },
+  { to: '/accounts', icon: Landmark, label: 'Account Portal' },
+  { to: '/finance', icon: Bot, label: 'AI Finance Bot' },
   { to: '/graph', icon: Network, label: 'Security Graph' },
   { to: '/monitor', icon: Activity, label: 'Live Monitor' },
   { to: '/incidents', icon: Crosshair, label: 'Incidents' },
@@ -176,6 +180,8 @@ export default function App() {
           <div className="flex-1">
             <Routes>
               <Route path="/" element={<Overview />} />
+              <Route path="/accounts" element={<AccountPortal />} />
+              <Route path="/finance" element={<FinanceBot />} />
               <Route path="/graph" element={<SecurityGraph />} />
               <Route path="/monitor" element={<LiveMonitor />} />
               <Route path="/incidents" element={<IncidentExplorer />} />

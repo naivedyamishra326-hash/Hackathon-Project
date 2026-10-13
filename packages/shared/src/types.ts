@@ -212,6 +212,12 @@ export interface CustomerAccount {
   currency: string;
   status: 'active' | 'suspended' | 'closed';
   createdAt: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  accountType?: 'checking' | 'savings' | 'investment';
+  tier?: string;
+  dailyLimit?: number;
+  creditScore?: number;
 }
 
 export interface Transaction {
@@ -225,6 +231,10 @@ export interface Transaction {
   timestamp: string;
   status: 'completed' | 'pending' | 'refunded' | 'disputed';
   riskScore?: number;
+  category?: string;
+  channel?: 'online' | 'in-store' | 'wire' | 'atm';
+  location?: string;
+  taintMarkers?: string[];
 }
 
 export interface RefundRequest {

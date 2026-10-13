@@ -40,7 +40,7 @@ export class RequestInspector {
     allowedCommands?: string[];
     allowedTools?: string[];
   } = {}) {
-    this.workspaceBoundary = config.workspaceBoundary || '/workspace';
+    this.workspaceBoundary = resolve(config.workspaceBoundary || process.cwd());
     this.allowedCommands = new Set(config.allowedCommands || []);
     this.allowedTools = new Set(config.allowedTools || []);
   }
@@ -147,12 +147,15 @@ export class RequestInspector {
     const checkValue = (key: string, value: unknown): void => {
       if (typeof value !== 'string') return;
       
+      const hasPathChars = value.includes('..') || value.includes('/') || value.includes('\\') || value.startsWith('~');
+      if (!hasPathChars) return;
+
       // Resolve the path and check if it escapes the boundary
       try {
-        const normalized = normalize(value);
-        const resolved = resolve(this.workspaceBoundary, normalized);
+        const normalizedBoundary = normalize(this.workspaceBoundary);
+        const resolved = resolve(this.workspaceBoundary, value);
         
-        if (!resolved.startsWith(normalize(this.workspaceBoundary))) {
+        if (!resolved.startsWith(normalizedBoundary)) {
           findings.push({
             type: 'PATH_TRAVERSAL',
             severity: 'CRITICAL' as RiskLevel,
